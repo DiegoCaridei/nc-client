@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9CA3627A1E05E922009925BC"
-               BuildableName = "netcat-client.app"
-               BlueprintName = "netcat-client"
-               ReferencedContainer = "container:netcat-client.xcodeproj">
+               BuildableName = "Terminal.app"
+               BlueprintName = "Terminal"
+               ReferencedContainer = "container:Terminal.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9CA3627A1E05E922009925BC"
-            BuildableName = "netcat-client.app"
-            BlueprintName = "netcat-client"
-            ReferencedContainer = "container:netcat-client.xcodeproj">
+            BuildableName = "Terminal.app"
+            BlueprintName = "Terminal"
+            ReferencedContainer = "container:Terminal.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <AdditionalOptions>
@@ -56,9 +56,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9CA3627A1E05E922009925BC"
-            BuildableName = "netcat-client.app"
-            BlueprintName = "netcat-client"
-            ReferencedContainer = "container:netcat-client.xcodeproj">
+            BuildableName = "Terminal.app"
+            BlueprintName = "Terminal"
+            ReferencedContainer = "container:Terminal.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <AdditionalOptions>
@@ -75,9 +75,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9CA3627A1E05E922009925BC"
-            BuildableName = "netcat-client.app"
-            BlueprintName = "netcat-client"
-            ReferencedContainer = "container:netcat-client.xcodeproj">
+            BuildableName = "Terminal.app"
+            BlueprintName = "Terminal"
+            ReferencedContainer = "container:Terminal.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

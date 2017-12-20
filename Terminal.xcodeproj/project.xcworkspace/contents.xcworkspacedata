@@ -2,6 +2,6 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "self:netcat-client.xcodeproj">
+      location = "self:/Users/Ricky/nc-client/Terminal.xcodeproj">
    </FileRef>
 </Workspace>

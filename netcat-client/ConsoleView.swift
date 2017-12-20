@@ -14,79 +14,258 @@ class ConsoleView: UITextView, StreamDelegate {
 
     // the current command that will be sent
     var command: String = ""
-    
-    // keep track of if the client is connected or not
-    var connected: Bool = false
-    var connecting: Bool = true
-    
-    // input and output streams for the socket
-    var inputStream: InputStream?
-    var outputStream: OutputStream?
-    
+	
+	let prompt = "\(NSUserName())$ "
+	var pwd = NSHomeDirectory()
+	
     override func insertText(_ text: String) {
         adjustCursor()
 
+		//TODO: if it has one or more \n's in it, call insertText multiple times
+		
         // insert text into this buffer
         super.insertText(text)
-        
-        // append incoming text to the current command
-        command += text
-        
+		
         // if it's a newline, send it
         if (text == "\n") {
-            
-            // if disconnected, try to reconnect here (when enter is hit)
-            if (!connected) {
-                let controller: ViewController = UIApplication.shared.keyWindow?.rootViewController as! ViewController
-                
-                if (!connecting) {
-                    // reprompt connection
-                    connecting = true
-                    controller.viewDidAppear(true)
-                }
-                
-                return
-            }
-            
-            // must be cast to a byte array to send
-            let bytes: [UInt8] = Array(command.utf8)
-            outputStream!.write(bytes, maxLength: bytes.count)
-            
-            // clear command for next time
-            command = ""
+			
+			self.processCmd(command)
+			self.newline()
         }
+		else // add this text to the command
+		{
+			// append incoming text to the current command
+			command += text
+		}
         
     }
-    
-    func recvText() {
-        // start a new thread to listen for incoming text
-        DispatchQueue.global(qos: .userInitiated).async {
+	
+	func processCmd(_ cmd_raw_raw: String)
+	{
+		var cmd_raw = cmd_raw_raw.trimmingCharacters(in: .whitespacesAndNewlines)
+		
+		let cmds = cmd_raw.components(separatedBy: " ")
+		var cmd = cmds[0].lowercased()
+		let args = cmd_raw.substring(from: cmd.endIndex).trimmingCharacters(in: .whitespacesAndNewlines)
+		
+		print("Received command: \(cmd), with args: \(args)")
+		
+		if cmd == "clear"
+		{
+			self.text = ""
+		}
+		else if cmd == "echo"
+		{
+			log(args)
+		}
+		else if cmd == "pwd"
+		{
+			log(self.pwd)
+		}
+		else if cmd == "vi" || cmd == "vim" || cmd == "nano" || cmd == "emacs" || cmd == "edit" || cmd == "gedit" || cmd == "open" || cmd == "gvim" || cmd == "pico" || cmd == "kate" || cmd == "ed"
+		{
+			// launch file editor on the target
+			var filename = args.components(separatedBy: " ")[0]
+			
+			let controller: ViewController = UIApplication.shared.keyWindow?.rootViewController as! ViewController
+			
+			let vc: EditorViewController = (controller.storyboard?.instantiateViewController(withIdentifier: "Editor"))! as! EditorViewController
+			vc.path = self.pwd
+			vc.filename = filename
+			
+			// if no filename was given, prompt for it
+			if filename == ""
+			{
+				log("Prompting for file name")
+				var filenameField: UITextField?
+				
+				var alert = UIAlertController(title: "New File", message: "Enter the desired file name.", preferredStyle: UIAlertControllerStyle.alert)
+				
+				func filenamePrompt(textField: UITextField!){
+					// add the text field and make the result global
+					textField.placeholder = "filename.txt"
+					filenameField = textField
+				}
+				
+				alert.addTextField(configurationHandler: filenamePrompt)
+				
+				alert.addAction(UIAlertAction(title: "Cancel", style: .default, handler: nil))
+				alert.addAction(UIAlertAction(title: "Continue", style: .default, handler: {
+					(alertAction:UIAlertAction!) in
+					filename = filenameField!.text!
+					
+					vc.filename = filename
+					controller.present(vc, animated: true, completion: nil)
+				}))
+				
+				let controller: ViewController = UIApplication.shared.keyWindow?.rootViewController as! ViewController
+				controller.present(alert, animated: true)
+			}
+			else
+			{
+				controller.present(vc, animated: true, completion: nil)
+				log("Opened text editor window")
+			}
 
-            // loop forever, so after receving some text, more can be received
-            while (true) {
-                
-                // create receving buffer (caps at 10KB at a time)
-                var buffer = [UInt8](repeating: 0, count: 10000)
-                
-                // read from socket
-                let bytesRead:Int = self.inputStream!.read(&buffer, maxLength: 10000)
-                
-                // if it's disconnected, exit this loop
-                if (!self.connected || bytesRead <= 0) {
-                    return
-                }
-                
-                // convert to String and output it with no delimiter (comes with \n)
-                self.log(NSString(bytes: buffer,  length: bytesRead, encoding: String.Encoding.utf8.rawValue) as! String, terminator: "")
-                
-            }
-        }
+		}
+		else if cmd == "mkdir"
+		{
+			let target = self.pwd + "/" + args.components(separatedBy: " ")[0]
+			
+			do {
+				try FileManager.default.createDirectory(atPath: target, withIntermediateDirectories: true, attributes: nil)
+			} catch {
+				log("mkdir: Permission denied")
+			}
+		}
+		else if cmd == "touch"
+		{
+			let target = self.pwd + "/" + args.components(separatedBy: " ")[0]
 
-    }
-    
+			do {
+				try "".write(toFile: target, atomically: false, encoding: String.Encoding.utf8)
+			} catch {
+				log("touch: Permission denied")
+			}
+		}
+		else if cmd == "cat"
+		{
+			let target = self.pwd + "/" + args.components(separatedBy: " ")[0]
+
+			do {
+				let readingText = try NSString(contentsOfFile: target, encoding: String.Encoding.utf8.rawValue)
+				log(readingText as String, terminator: "")
+			} catch {
+				log("cat: Permission denied")
+			}
+		}
+		else if cmd == "rm" || cmd == "rmdir"
+		{
+			var cur_args = args.components(separatedBy: " ")
+			
+			var firstArg = cur_args[0]
+			var x = 0
+			
+			if firstArg == "-r" {
+				// if the -r flag is specified, offset the file that will be deleted
+				// TODO: handle multiple files
+				x = 1
+				
+				// also, if there's not going to be a second argument, just exit
+				if cur_args.count == 1 {
+					self.log("rm: no directory specified")
+					return
+				}
+			}
+			
+			if firstArg == "" {
+				self.log("rm: no file/directory specified")
+				return
+			}
+			
+			let target = try self.pwd + "/" + cur_args[x]
+			
+			// check if it's a folder for safety
+			var isDir : ObjCBool = false
+			FileManager.default.fileExists(atPath: target, isDirectory: &isDir)
+			
+			do {
+				if isDir.boolValue {
+					// for rmdir, make sure directory is empty
+					if cmd == "rmdir" {
+						let contents = try FileManager.default.contentsOfDirectory(atPath: target)
+						if contents.count != 0 {
+							self.log("rmdir: Directory not empty")
+							return
+						}
+					}
+					// else, ensure there's a -r flag
+					else if firstArg != "-r" {
+						self.log("rm: Refusing to delete without \"-r\"")
+						return
+					}
+				}
+			
+				try FileManager.default.removeItem(atPath: target)
+			} catch {
+				log("rm: Permission denied")
+			}
+		}
+		else if cmd == "cd"
+		{
+			var newPath = self.pwd
+			var target = args.components(separatedBy: " ")[0]
+			
+			if args == "" {
+				newPath = NSHomeDirectory()
+			}
+			else if args[args.startIndex] == "/" {
+				// absolute path
+				newPath = target
+			}
+			else {
+				// relative path
+				newPath += "/" + target
+			}
+			
+			
+			var isDir : ObjCBool = false
+			FileManager.default.fileExists(atPath: newPath, isDirectory: &isDir)
+			
+			if isDir.boolValue {
+				// valid path, update pwd
+				self.pwd = newPath
+			}
+			else {
+				log("cd: Not a directory")
+			}
+			
+		}
+		else if cmd == "ls"
+		{
+			var target = self.pwd + "/" + args.components(separatedBy: " ")[0]
+			
+			do{
+				let items = try FileManager.default.contentsOfDirectory(atPath: target)
+				
+				var resp = ""
+				for item in items {
+					resp += "\(item)\n"
+				}
+				log(resp, terminator: "")
+				
+			} catch {
+				log("ls: Permission denied")
+			}
+		}
+		else if cmd == "run" || cmd == "." || cmd == "exec"
+		{
+			if cmds.count < 2 {
+				log("nothing supplied to run")
+				return
+			}
+			
+			log(executeShell(command: cmds[1], arguments: [])!)
+		}
+		else if cmd.hasPrefix("./")
+		{
+			cmd.remove(at: cmd.startIndex)
+			cmd.remove(at: cmd.startIndex)
+
+			log(executeShell(command: cmd, arguments: [])!)
+		}
+		else if cmd == ""
+		{
+			// do nothing
+		}
+		else
+		{
+			// try to execute it anyway
+			log("-iosh: \(cmd): command not found")
+		}
+	}
+	
     func log(_ text: String, terminator:String = "\n") {
-        print(text)
-        
         // run on the main thread
         OperationQueue.main.addOperation {
             self.adjustCursor()
@@ -96,27 +275,11 @@ class ConsoleView: UITextView, StreamDelegate {
         }
     }
     
-    func connect(host: String, port: Int) {
-        
-        command = ""
-        log("Connecting to \(host):\(port)...")
-        
-        // connect
-        Stream.getStreamsToHost(withName: host, port: port, inputStream: &inputStream, outputStream: &outputStream)
-        
-        // set delegates and schedule output stream on the main run thread
-        // (see: http://stackoverflow.com/a/28717153 )
-        inputStream!.delegate = self
-        inputStream!.schedule(in: .main, forMode: RunLoopMode.defaultRunLoopMode)
-        
-        // attempt to open streams, when done the delegate's sync's method is invoked
-        outputStream!.open()
-        inputStream!.open()
-
-    }
-    
     override func deleteBackward() {
         adjustCursor()
+		
+		// short circuit if at the end of the current line
+		if command == "" { return }
         
         // delete back a character (may not always be the right character
         // if input has been received since then, but that's ok)
@@ -128,7 +291,14 @@ class ConsoleView: UITextView, StreamDelegate {
             command.remove(at: command.index(before: command.endIndex))
         }
     }
-    
+	
+	func newline() {
+		self.log(self.prompt, terminator: "")
+		
+		// clear command for next time
+		command = ""
+	}
+	
     func adjustCursor() {
         // move cursor to the end of the text field
         self.selectedRange = NSMakeRange(self.text.characters.count, 0);
@@ -143,45 +313,45 @@ class ConsoleView: UITextView, StreamDelegate {
         // update current command (newlines won't trigger a send)
         command += UIPasteboard.general.string!
     }
-    
-    func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-        print("EV \(eventCode)")
+	
+	open override func target(forAction action: Selector, withSender sender: Any?) -> Any? {
+		// prevent cut-ing (messes up terminal layout)
+		if action == #selector(UIResponderStandardEditActions.cut(_:)) {
+			return nil
+		}
+		return super.target(forAction: action, withSender: sender)
+	}
+	
+	private func executeShell(command: String, arguments: [String] = []) -> String? {
+		
+		var command_r = command
+		
+		if !command_r.contains("/") {
+			command_r = self.pwd + "/" + command_r
+		}
+		
+		// ensure the path exists before continuing
+		
+		
+		let task = NSTask()!
+		task.setLaunchPath(command_r)
+		task.setArguments(arguments)
+		
+		let pipe = Pipe()
+		task.setStandardOutput(pipe)
+		task.setStandardError(pipe)
+		
+		let tryLaunch = NSObject.tryLaunch
+		let error = tryLaunch(task) as String!
+		
+		if error != "" {
+			return error
+		}
+		
+		let data = pipe.fileHandleForReading.readDataToEndOfFile()
+		let output: String? = String(data: data, encoding: String.Encoding.utf8)
+		
+		return output?.trimmingCharacters(in: .whitespacesAndNewlines)
+	}
 
-        switch eventCode {
-        case Stream.Event.endEncountered:
-            log("Server disconnected\nPress [Enter] to reconnect")
-            self.connecting = false
-            self.connected = false
-            break
-        case Stream.Event.errorOccurred:
-            log("Error: \(aStream.streamError?.localizedDescription)\nPress [Enter] to reconnect")
-            self.connecting = false
-            self.connected = false
-            break
-        case Stream.Event.openCompleted:
-            log("Connection successful!\n")
-            
-            // run on the main thread
-            OperationQueue.main.addOperation {
-                // set as connected
-                self.connected = true
-                self.connecting = false
-                
-                // clear command
-                self.command = ""
-                
-                // start receiving loop
-                self.recvText()
-                
-                // pop up keyboard
-                self.becomeFirstResponder()
-            }
-            break
-        case Stream.Event.hasBytesAvailable:
-//            log("input: HasBytesAvailable")
-            break
-        default:
-            break
-        }
-    }
 }

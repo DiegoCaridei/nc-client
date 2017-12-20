@@ -10,81 +10,31 @@ import UIKit
 
 class ViewController: UIViewController {
     @IBOutlet weak var console: ConsoleView!
-
-    var hostname: UITextField?
-    var port: UITextField?
-    
-    let defaultHost: String = "localhost"
-    let defaultPort: Int = 4141
-        
+	var welcomed = false
+	        
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // set up scrollview for scrolling when keyboard pops up
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: .UIKeyboardWillShow, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: .UIKeyboardWillHide, object: nil)
-
+		
     }
     
     override func viewDidAppear(_ animated: Bool) {
-        
-        // welcome message
-        console.log("nc-client for iOS by vgmoose\nCC BY-NC-SA 4.0 license\n")
-        
-        // disable spell checking (messes up some commands)
-        console.autocorrectionType = UITextAutocorrectionType.no;
-        
-        var alert = UIAlertController(title: "netcat client", message: "Enter hostname and port to connect. Leave blank and press OK for defaults.", preferredStyle: UIAlertControllerStyle.alert)
-        //
-        
-        func hostPrompt(textField: UITextField!){
-            // add the text field and make the result global
-            textField.placeholder = "Hostname (default: \(defaultHost))"
-            
-            // load old value if it exists
-            if let hostname = self.hostname {
-                textField.text = hostname.text!
-            }
-            
-            hostname = textField
-        }
-        
-        func portPrompt(textField: UITextField!){
-            // add the text field and make the result global
-            textField.placeholder = "Port (default: \(defaultPort))"
-            
-            // load old value if it exists
-            if let port = self.port {
-                textField.text = port.text!
-            }
-            
-            port = textField
-        }
-        
-        alert.addTextField(configurationHandler: hostPrompt)
-        alert.addTextField(configurationHandler: portPrompt)
-        alert.addAction(UIAlertAction(title: "OK", style: .default, handler:{ (alertAction:UIAlertAction!) in self.startNC()
-        }))
-        
-        
-        self.present(alert, animated: true)
-        
+		
+		if !welcomed
+		{
+			// welcome message
+			let lastDate = Date().string(with: "EEE MMM dd hh:mm:ss")
+	//		console.log("Terminal by Richard Ayoub")
+			console.log("Last login: \(lastDate)")
+			
+			// disable spell checking (messes up some commands)
+			console.autocorrectionType = UITextAutocorrectionType.no;
+			console.newline()
+			
+			welcomed = true
+		}
+		
+		self.console.becomeFirstResponder()
     }
-    
-    func startNC() {
-        
-        // get input ports from alert textfields, or defaults
-        let host:String = (hostname!.text! != "") ? hostname!.text! : defaultHost
-        let port:Int = Int(self.port!.text!) ?? defaultPort
-
-        // run on a background thread
-        DispatchQueue.global(qos: .userInitiated).async {
-            
-            // connect to remote
-            self.console.connect(host: host, port: port)
-        }
-    }
-    
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
@@ -115,3 +65,10 @@ class ViewController: UIViewController {
 
 }
 
+extension Date {
+	func string(with format: String) -> String {
+		let dateFormatter = DateFormatter()
+		dateFormatter.dateFormat = format
+		return dateFormatter.string(from: self)
+	}
+}
