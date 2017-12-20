@@ -21,6 +21,19 @@ class EditorViewController : UIViewController
 		super.viewDidLoad()
 
 		validateAndLoad()
+		
+		// set up scrollview for scrolling when keyboard pops up
+		NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: .UIKeyboardWillShow, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide), name: .UIKeyboardWillHide, object: nil)
+		
+		fileToolbar.removeFromSuperview()
+		
+		self.textView.textColor = UIColor.black
+		self.textView.backgroundColor = UIColor.white
+		
+		self.textView.inputAccessoryView = fileToolbar
+		self.textView.becomeFirstResponder()
+
 	}
 	
 	func validateAndLoad()
@@ -113,6 +126,23 @@ class EditorViewController : UIViewController
 		alert.addAction(UIAlertAction(title: "Quit", style: .default, handler: { (alertAction:UIAlertAction!) in self.actuallyDismiss() }))
 		
 		self.present(alert, animated: true)
+	}
+	
+	func keyboardWillShow(notification:NSNotification){
+		
+		var userInfo = notification.userInfo!
+		var keyboardFrame:CGRect = (userInfo[UIKeyboardFrameBeginUserInfoKey] as! NSValue).cgRectValue
+		keyboardFrame = self.view.convert(keyboardFrame, from: nil)
+		
+		var contentInset:UIEdgeInsets = self.textView.contentInset
+		contentInset.bottom = keyboardFrame.size.height
+		self.textView.contentInset = contentInset
+	}
+	
+	func keyboardWillHide(notification:NSNotification){
+		
+		let contentInset:UIEdgeInsets = UIEdgeInsets.zero
+		self.textView.contentInset = contentInset
 	}
 	
 }
