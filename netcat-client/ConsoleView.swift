@@ -238,6 +238,41 @@ class ConsoleView: UITextView, StreamDelegate {
 				log("ls: Permission denied")
 			}
 		}
+		else if cmd == "cp"
+		{
+			if cmds.count < 3 {
+				log("Target and destination required")
+				return
+			}
+			var targ1 = cmds[1]
+			var file1 = self.pwd
+			if targ1[targ1.startIndex] == "/" {
+				// absolute path
+				file1 = targ1
+			}
+			else {
+				// relative path
+				file1 += "/" + targ1
+			}
+			
+			var targ2 = cmds[2]
+			var file2 = self.pwd
+			if targ2[targ2.startIndex] == "/" {
+				// absolute path
+				file2 = targ2
+			}
+			else {
+				// relative path
+				file2 += "/" + targ2
+			}
+			
+			do {
+				print("\(file1) \(file2)")
+				try FileManager.default.copyItem(atPath: file1, toPath: file2)
+			} catch {
+				log("cp: Permission denied")
+			}
+		}
 		else if cmd == "run" || cmd == "." || cmd == "exec"
 		{
 			if cmds.count < 2 {
@@ -338,6 +373,7 @@ class ConsoleView: UITextView, StreamDelegate {
 		task.setArguments(arguments)
 		
 		let pipe = Pipe()
+		let pid = forkpty()
 		task.setStandardOutput(pipe)
 		task.setStandardError(pipe)
 		
